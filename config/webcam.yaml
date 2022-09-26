@@ -1,0 +1,20 @@
+image_width: 960
+image_height: 720
+camera_name: tello_camera
+camera_matrix:
+  rows: 3
+  cols: 3
+  data: [929.942856, 0, 491.196596, 0, 928.626618, 363.950897, 0, 0, 1]
+distortion_model: plumb_bob
+distortion_coefficients:
+  rows: 1
+  cols: 5
+  data: [0.008159, 0.054559, 0.005109, 0.001784, 0]
+rectification_matrix:
+  rows: 3
+  cols: 3
+  data: [1, 0, 0, 0, 1, 0, 0, 0, 1]
+projection_matrix:
+  rows: 3
+  cols: 4
+  data: [943.545471, 0, 491.868921, 0, 0, 939.556641, 366.557589, 0, 0, 0, 1, 0]

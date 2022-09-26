@@ -1,0 +1,26 @@
+LaunchDescription([
+            IncludeLaunchDescription(
+                PythonLaunchDescriptionSource(apriltag_ros_path)
+            ),
+        ]),
+
+
+From REP 105 Coordinate Frames for Mobile Platforms
+    On a mobile robot, xis forward, y is left, and zis up 
+    For cameras z is forward, x is right, y is down, and frame_id ends with _optical
+..
+
+Let’s look at the transform of the turtle2 frame with respect to turtle1 frame which is equivalent to:
+ros2 run tf2_ros tf2_echo tello_base marker3
+
+
+ros2 service call /drone1/tello_action tello_msgs/TelloAction "{cmd: 'takeoff'}"
+ros2 service call /drone1/tello_action tello_msgs/TelloAction "{cmd: 'land'}"
+
+ros2 bag record -o cap1 /drone1/image_raw
+
+postprocessing : erode dilate
+
+
+1. use hsv filter to extact the red object
+2. take only the max 

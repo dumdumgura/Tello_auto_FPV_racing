@@ -1,0 +1,153 @@
+#pid shit
+        '''
+        Node(package='tello_mod',executable='pid_pub',namespace='drone1/pid/'),
+        Node(package='tello_mod',executable='pid_teleop',namespace='drone1/pid/'),
+        Node(package='tello_mod',executable='graph',namespace=ns),
+
+        Node(
+            package='jlb_pid',
+            namespace='/drone1/pid/angle',
+            executable='controller_node',
+            name='distance_controller',
+            parameters=[
+                # Required
+                {'kp': 0.25},
+                {'ki': 0.01},
+                {'kd': 0.02},
+                # Optional
+                {'upper_limit': 0.2},
+                {'lower_limit': -0.2},
+                {'windup_limit': 0.001},
+                {'update_rate': float(30.0)}
+            ]
+        ),
+
+        Node(
+            package='jlb_pid',
+            namespace='/drone1/pid/dis_h',
+            executable='controller_node',
+            name='distance_controller',
+            parameters=[
+                # Required
+                {'kp': 0.05},
+                {'ki': 0.0},
+                {'kd': 0.0},
+                # Optional
+                {'upper_limit': 0.1},
+                {'lower_limit': -0.1},
+                {'windup_limit': 0.001},
+                {'update_rate': float(30.0)}
+            ]
+        ),
+        Node(
+            package='jlb_pid',
+            namespace='/drone1/pid/dis_v',
+            executable='controller_node',
+            name='distance_controller',
+            parameters=[
+                # Required
+                {'kp': 0.1},
+                {'ki': 0.01},
+                {'kd': 0.02},
+                # Optional
+                {'upper_limit': 0.2},
+                {'lower_limit': -0.2},
+                {'windup_limit': 0.001},
+                {'update_rate': float(30.0)}
+            ]
+        ),
+        '''
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#pid shit
+             '''
+        Node(package='tello_mod',executable='pid_pub',namespace='drone1/pid/'),
+        Node(package='tello_mod',executable='pid_teleop',namespace='drone1/pid/'),
+        Node(package='tello_mod',executable='graph',namespace=ns),
+
+
+        Node(
+            package='jlb_pid',
+            namespace='/drone1/pid/az',
+            executable='controller_node',
+            name='distance_controller',
+            parameters=[
+                # Required
+                {'kp': 0.3},
+                {'ki': 0.02},
+                {'kd': 0.01},
+                # Optional
+                {'upper_limit': 0.5},
+                {'lower_limit': -0.5},
+                {'windup_limit': 0.001},
+                {'update_rate': float(200.0)}
+            ]
+        ),
+
+        Node(
+            package='jlb_pid',
+            namespace='/drone1/pid/x',
+            executable='controller_node',
+            name='distance_controller',
+            parameters=[
+                # Required
+                {'kp': 0.05},
+                {'ki': 0.00},
+                {'kd': 0.00},
+                # Optional
+                {'upper_limit': 0.1},
+                {'lower_limit': -0.1},
+                {'windup_limit': 0.001},
+                {'update_rate': float(200.0)}
+            ]
+        ),
+        Node(
+            package='jlb_pid',
+            namespace='/drone1/pid/y',
+            executable='controller_node',
+            name='distance_controller',
+            parameters=[
+                # Required
+                {'kp': 0.1},
+                {'ki': 0.01},
+                {'kd': 0.02},
+                # Optional
+                {'upper_limit': 0.2},
+                {'lower_limit': -0.2},
+                {'windup_limit': 0.001},
+                {'update_rate': float(200.0)}
+            ]
+        ),
+        Node(
+            package='jlb_pid',
+            namespace='/drone1/pid/z',
+            executable='controller_node',
+            name='distance_controller',
+            parameters=[
+                # Required
+                {'kp': 0.15},
+                {'ki': 0.01},
+                {'kd': 0.02},
+                # Optional
+                {'upper_limit': 0.3},
+                {'lower_limit': -0.3},
+                {'windup_limit': 0.001},
+                {'update_rate': float(200.0)}
+            ]
+        ),
+        '''

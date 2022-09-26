@@ -1,0 +1,136 @@
+
+
+
+        Node(
+            package='jlb_pid',
+            namespace='/drone1/pid/y',
+            executable='controller_node',
+            name='distance_controller',
+            parameters=[
+                # Required
+                {'kp': 0.4},
+                {'ki': 0.15},
+                {'kd': 0.15},
+                # Optional
+                {'upper_limit': 0.6},
+                {'lower_limit': -0.6},
+                {'windup_limit': 0.0001},
+                {'update_rate': float(200.0)}
+            ]
+        ),
+
+        ------
+
+        Node(
+            package='jlb_pid',
+            namespace='/drone1/pid/y',
+            executable='controller_node',
+            name='distance_controller',
+            parameters=[
+                # Required
+                {'kp': 0.4},
+                {'ki': 0.15},
+                {'kd': 0.15},
+                # Optional
+                {'upper_limit': 0.6},
+                {'lower_limit': -0.6},
+                {'windup_limit': 0.0001},
+                {'update_rate': float(200.0)}
+            ]
+        ),
+        #y can hardly center itself ...
+
+        Node(
+            package='jlb_pid',
+            namespace='/drone1/pid/az',
+            executable='controller_node',
+            name='distance_controller',
+            parameters=[
+                # Required
+                {'kp': 1.2},
+                {'ki': 0.6},
+                {'kd': 0.0},
+                # Optional
+                {'upper_limit': 0.6},
+                {'lower_limit': -0.6},
+                {'windup_limit': 0.0001},
+                {'update_rate': float(200.0)}
+            ]
+        ),
+
+
+
+        ------
+
+                Node(
+            package='jlb_pid',
+            namespace='/drone1/pid/x',
+            executable='controller_node',
+            name='distance_controller',
+            parameters=[
+                # Required
+                {'kp': 0.5},
+                {'ki': 0.3},
+                {'kd': 0.2},
+                # Optional
+                {'upper_limit': 0.3},
+                {'lower_limit': -0.3},
+                {'windup_limit': 0.0001},
+                {'update_rate': float(200.0)}
+            ]
+        ),
+        Node(
+            package='jlb_pid',
+            namespace='/drone1/pid/y',
+            executable='controller_node',
+            name='distance_controller',
+            parameters=[
+                # Required
+                {'kp': 0.2},
+                {'ki': 0.15},
+                {'kd': 0.15},
+                # Optional
+                {'upper_limit': 0.6},
+                {'lower_limit': -0.6},
+                {'windup_limit': 0.0001},
+                {'update_rate': float(200.0)}
+            ]
+        ),
+
+         Node(
+            package='jlb_pid',
+            namespace='/drone1/pid/z',
+            executable='controller_node',
+            name='distance_controller',
+            parameters=[
+                # Required
+                {'kp': 0.2},
+                {'ki': 0.15},
+                {'kd': 0.15},
+                # Optional
+                {'upper_limit': 0.6},
+                {'lower_limit': -0.6},
+                {'windup_limit': 0.0001},
+                {'update_rate': float(200.0)}
+            ]
+        ),
+        #y can hardly center itself ...
+
+        Node(
+            package='jlb_pid',
+            namespace='/drone1/pid/az',
+            executable='controller_node',
+            name='distance_controller',
+            parameters=[
+                # Required
+                {'kp': 1.2},
+                {'ki': 0.6},
+                {'kd': 0.0},
+                # Optional
+                {'upper_limit': 0.6},
+                {'lower_limit': -0.6},
+                {'windup_limit': 0.0001},
+                {'update_rate': float(200.0)}
+            ]
+        ),
+       

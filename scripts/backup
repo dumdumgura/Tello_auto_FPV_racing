@@ -1,0 +1,802 @@
+#from _typeshed import Self
+#2022/4/2
+
+import math
+from geometry_msgs.msg import Twist
+
+import rclpy
+from rclpy.node import Node
+from tello_mod.tello_mod.strategy import strategy
+import tf_transformations
+from tf2_ros import TransformException
+from tf2_ros.buffer import Buffer
+from tf2_ros.transform_listener import TransformListener
+import numpy as np
+from turtlesim.srv import Spawn
+
+
+class FrameListener(Node):
+
+    def __init__(self):
+        super().__init__('tello_tf2_frame_listener')
+
+        # Declare and acquire `target_frame` parameter
+        #self.declare_parameter('target_frame', 'marker3')
+        
+        #self.target_frame = self.get_parameter(
+        #    'target_frame').get_parameter_value().string_value
+
+        self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer, self)
+
+        # Create turtle2 velocity publisher
+        self.publisher = self.create_publisher(Twist, '/drone1/cmd_vel', 1)
+
+        # Call on_timer function every second
+        self.timer = self.create_timer(0.2, self.on_timer)   
+        
+        self.src_frame = 'tello_base'
+        self.target_frame = 'marker3'
+        
+    def on_timer(self):
+        # Store frame names in variables that will be used to
+        # compute transformations
+        try:
+            now = rclpy.time.Time()
+            self.trans = self.tf_buffer.lookup_transform(
+                self.src_frame,
+                self.target_frame,
+                now)
+            self.tello_center()
+        
+        except TransformException as ex:
+            self.get_logger().info(
+                f'Could not transform from {self.src_frame} to {self.target_frame} :{ex}')
+            self.tello_hovering()
+            return
+
+
+    def tello_center(self):
+        msg = Twist()
+        scale_rotation_rate = 0.5   
+        scale_forward_speed = 0.3
+        hold_dis = 5
+
+        #angle = math.atan2(self.trans.transform.translation.y,self.trans.transform.translation.x)
+        distance = math.sqrt(self.trans.transform.translation.x ** 2 + self.trans.transform.translation.y ** 2)
+
+        q = [0,0,0,0]
+        q[0] = self.trans.transform.rotation.x
+        q[1] = self.trans.transform.rotation.y
+        q[2] = self.trans.transform.rotation.z
+        q[3] = self.trans.transform.rotation.w
+        
+        R = quaternion_rotation_matrix(q)
+        self.get_logger().info(str(R[0][0])+" "+str(R[0][1])+" "+str(R[0][2]))
+        self.get_logger().info(str(R[1][0])+" "+str(R[1][1])+" "+str(R[1][2]))
+        self.get_logger().info(str(R[2][0])+" "+str(R[2][1])+" "+str(R[2][2]))
+
+        #rotation =tf_transformations.euler_from_quaternion(q)
+        self.get_logger().info(("z:"))
+        #self.get_logger().info((str(np.round(rotation[2],decimals=2))))
+
+        
+
+
+        if distance >= 0.2:
+            msg.linear.x = scale_forward_speed * (self.trans.transform.translation.x - hold_dis)
+            msg.linear.y= scale_forward_speed * self.trans.transform.translation.y
+            self.get_logger().info(('{distance},distance>0.1'))
+        else:
+            msg.linear.x = float(0.0)
+            msg.linear.y = float(0.0)
+            self.get_logger().info(('{distance},distance<0.1'))
+        
+        msg.angular.z =-scale_rotation_rate * np.arctan(R[1][2]/R[1][1])
+        msg.linear.z = scale_forward_speed * self.trans.transform.translation.z 
+         
+        self.publisher.publish(msg)
+    
+
+
+    def tello_hovering(self):
+        msg = Twist()
+        msg.angular.x = 0.0
+        msg.linear.x = 0.0
+        msg.angular.y = 0.0
+        msg.linear.y = 0.0
+        msg.angular.z = 0.0
+        msg.linear.z = 0.0
+         
+        self.publisher.publish(msg)
+
+ 
+def quaternion_rotation_matrix(Q):
+    """
+    Covert a quaternion into a full three-dimensional rotation matrix.
+ 
+    Input
+    :param Q: A 4 element array representing the quaternion (q0,q1,q2,q3) 
+ 
+    Output
+    :return: A 3x3 element matrix representing the full 3D rotation matrix. 
+             This rotation matrix converts a point in the local reference 
+             frame to a point in the global reference frame.
+    """
+    # Extract the values from Q
+    q0 = Q[0]
+    q1 = Q[1]
+    q2 = Q[2]
+    q3 = Q[3]
+     
+    # First row of the rotation matrix
+    r00 = 2 * (q0 * q0 + q1 * q1) - 1
+    r01 = 2 * (q1 * q2 - q0 * q3)
+    r02 = 2 * (q1 * q3 + q0 * q2)
+     
+    # Second row of the rotation matrix
+    r10 = 2 * (q1 * q2 + q0 * q3)
+    r11 = 2 * (q0 * q0 + q2 * q2) - 1
+    r12 = 2 * (q2 * q3 - q0 * q1)
+     
+    # Third row of the rotation matrix
+    r20 = 2 * (q1 * q3 - q0 * q2)
+    r21 = 2 * (q2 * q3 + q0 * q1)
+    r22 = 2 * (q0 * q0 + q3 * q3) - 1
+     
+    # 3x3 rotation matrix
+    rot_matrix = np.array([[r00, r01, r02],
+                           [r10, r11, r12],
+                           [r20, r21, r22]])
+                            
+    return rot_matrix
+
+def main():
+    rclpy.init()
+    node = FrameListener()
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+
+    rclpy.shutdown()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# blind_fly_server
+
+from time import sleep
+from simplejson import simple_first
+from std_srvs.srv import Empty
+from matplotlib.pyplot import text
+from torch import constant_pad_nd, set_flush_denormal
+import rclpy
+from rclpy.node import Node
+import cv2 as cv
+from sensor_msgs.msg import Image
+from geometry_msgs.msg import Twist
+from std_msgs.msg import String
+from std_msgs.msg import Bool
+from cv_bridge import CvBridge, CvBridgeError
+import numpy as np
+import math
+
+class blind_fly_server(Node):
+
+    def __init__(self):
+        super().__init__('blind_fly_server')
+        self.pub = self.create_publisher(Twist,'/drone1/cmd_vel',10)
+        self.create_service(Empty,'blind_fly',self.blind_fly_callback)
+        #self.create_timer(0.1,self.timer_callback)
+        self.timer_count = 0.0
+        self.blind_fly_enable = False
+        self.constant_speed_x = 0.2
+        self.constant_speed_z = 0.2
+
+
+    def blind_fly_callback(self,request,response):
+        self.timer_count = 0.0
+        start_time = self.get_clock().now().seconds_nanoseconds()
+        start_sec = int(start_time[0])
+        start_nsec = int(start_time[1])
+        print("start_sec"+str(start_sec)+"start_nsec" + str(start_nsec))
+    
+        print('success1')
+        self.blind_fly_enable = True
+
+        while (self.blind_fly_enable):
+            if self.blind_fly_enable:
+                (now_sec,now_nsec)=self.get_clock().now().seconds_nanoseconds()
+                dur_sec = now_sec-start_sec
+                dur_nsec = now_nsec-start_nsec
+                print("now_sec"+str(now_sec)+"now_nsec" + str(now_nsec))
+                print("start_sec"+str(start_sec)+"start_nsec" + str(start_nsec))
+                if (dur_nsec<0):
+                    dur_sec =dur_sec - 1
+                    dur_nsec = dur_nsec + math.pow(10,10)
+
+                print("dur_nsec" + str(dur_nsec))
+                if (dur_nsec==0):
+                    dur_nsec_digits = 0
+                else:
+                    dur_nsec_digits = int(math.log10(dur_nsec))+1
+                print("dur_nsec_digits"+str(dur_nsec_digits))
+
+                dur_nsec = float( dur_nsec / math.pow(10, dur_nsec_digits))
+                print("pwr:"+str(math.pow(10, dur_nsec_digits)))
+
+                print("dur_sec"+str(dur_sec))
+                print("dur_nsec"+str(dur_nsec))
+
+                self.timer_count = float(dur_sec+dur_nsec)
+
+                if (self.timer_count>=0.0) and (self.timer_count <2.0):
+                    msg = Twist()
+                    msg.linear.x = self.constant_speed_x
+                    msg.linear.z = -self.constant_speed_z
+                    self.pub.publish(msg)
+
+                    print("dur"+str(self.timer_count))
+                    sleep(0.05)
+                    
+                elif (self.timer_count>=2.0)and(self.timer_count<4.0):
+                    msg = Twist()
+                    msg.linear.x = self.constant_speed_x
+                    msg.linear.z = -self.constant_speed_z
+                    self.pub.publish(msg)
+                    #self.timer_count+1
+                    print("dur"+str(self.timer_count))
+                    sleep(0.05)
+                elif (self.timer_count>=4.0)and(self.timer_count<6.0):
+                    msg = Twist()
+                    self.pub.publish(msg)
+                    #self.timer_count+1
+                    print("dur"+str(self.timer_count))
+                    sleep(0.05)
+                else:
+                    self.blind_fly_enable = False
+                    print("over")
+        return response
+
+def main(args=None):
+    rclpy.init(args=args)
+
+    minimal_subscriber = blind_fly_server()
+
+    rclpy.spin(minimal_subscriber)
+
+    # Destroy the node explicitly
+    # (optional - otherwise it will be done automatically
+    # when the garbage collector destroys the node object)
+    minimal_subscriber.destroy_node()
+    rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()
+
+
+
+20200405 image_receive
+
+
+from matplotlib.pyplot import text
+import rclpy
+from rclpy.node import Node
+import cv2 as cv
+from sensor_msgs.msg import Image
+from cv_bridge import CvBridge, CvBridgeError
+import numpy as np
+
+class MinimalSubscriber(Node):
+
+    def __init__(self):
+        super().__init__('image_receive')
+        self.subscription = self.create_subscription(
+            Image,
+            '/drone1/image_raw',
+            self.listener_callback,
+            10)
+        self.bridge = CvBridge()
+        self.subscription  # prevent unused variable warning
+
+    def listener_callback(self, msg):
+        #self.get_logger().info('image received')
+        try:
+            cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding="passthrough")
+        
+        except CvBridgeError as e:
+           print(e)
+        
+        cv_image = cv.cvtColor(cv_image, cv.COLOR_BGR2RGB)
+        
+        blur = cv.blur(cv_image,(10,10))
+        #blur = cv.GaussianBlur(cv_image,(5,5),0)
+        #blur = cv.bilateralFilter(cv_image,9,75,75)
+        hsv = cv.cvtColor(blur, cv.COLOR_BGR2HSV)
+
+        #mask =cv.inRange(hsv,(117,236,75),(179,255,255)) #for tello
+       
+        #mask =cv.inRange(hsv,(0,57,210),(7,210,255))  #for usb camera
+        # define range of blue color in HSV
+        
+        lower_hue = np.array([117,200,75])
+        upper_hue = np.array([180,255,255])
+    
+
+        # Threshold the HSV image to get only blue colors
+        mask1 = cv.inRange(hsv, lower_hue, upper_hue)
+
+        lower_blue = np.array([0,236,75])
+        upper_blue = np.array([30,255,255])
+        
+        mask2 = cv.inRange(hsv, lower_blue, upper_blue)
+
+    
+        mask = mask1+mask2
+
+
+        kernel = np.ones((7,7),np.uint8)
+
+        
+        opening = cv.morphologyEx(mask, cv.MORPH_OPEN, kernel)
+        dilation = cv.dilate(opening,kernel,iterations = 1)
+        closing = cv.morphologyEx(mask, cv.MORPH_CLOSE, kernel)
+        # Bitwise-AND mask and original image
+        
+        res = cv.bitwise_and(cv_image,cv_image, mask = closing)
+        
+        #imgray = cv.cvtColor(mask, cv.COLOR_BGR2GRAY)
+        #ret, thresh = cv.threshold(imgray, 127, 255, 0)
+        
+        contours, hierarchy = cv.findContours(closing, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+       
+        #
+        for  cnt in contours:
+            cv.drawContours(res, cnt, -1, (0,255,255), 3)   #yellow for all contours
+            area = cv.contourArea(cnt)
+            op = 0
+
+        
+
+            if area > 10000:
+                cv.drawContours(res, cnt, -1, (0,255,0), 3) #green lines for enough big contours
+            
+                epsilon = 0.005*cv.arcLength(cnt,True)
+                approx = cv.approxPolyDP(cnt,epsilon,True)
+                
+                tmp = approx[0]
+                tmp_l = tmp[0]
+                tmp_r = tmp[0]
+                tmp_t = tmp[0]
+                tmp_b = tmp[0]
+                print(tmp)
+                print("tmp="+str(tmp))
+                for ptr in approx:
+                    if ptr[0][0] < tmp_l[0]:
+                        tmp_l = ptr[0]
+                    if ptr[0][0] > tmp_r[0]:
+                        tmp_r = ptr[0]
+                    if ptr[0][1] < tmp_t[1]:
+                        tmp_t = ptr[0]
+                    if ptr[0][1] > tmp_b[1]:
+                        tmp_b = ptr[0]
+                cv.circle(res,(tmp_l[0],tmp_l[1]), 15, (0,0,255), -1)
+                cv.circle(res,(tmp_r[0],tmp_r[1]), 15, (0,0,255), -1)
+                cv.circle(res,(tmp_t[0],tmp_t[1]), 15, (0,0,255), -1)
+                cv.circle(res,(tmp_b[0],tmp_b[1]), 15, (0,0,255), -1)
+                l2b = (tmp_l[0]-tmp_b[0])*(tmp_l[0]-tmp_b[0])+(tmp_l[1]-tmp_b[1])*(tmp_l[1]-tmp_b[1])
+                r2b = (tmp_r[0]-tmp_b[0])*(tmp_r[0]-tmp_b[0])+(tmp_r[1]-tmp_b[1])*(tmp_r[1]-tmp_b[1])
+                print("l2b="+str(l2b))
+                print("r2b="+str(r2b))
+                if (l2b<=r2b): # gate is toward right
+                    cv.line(res,(tmp_b[0],tmp_b[1]),(tmp_r[0],tmp_r[1]),(25,123,0),10)
+                    cv.line(res,(tmp_b[0],tmp_b[1]),(tmp_t[0],tmp_t[1]),(25,123,0),10)
+                    cv.line(res,(tmp_r[0],tmp_r[1]),(tmp_t[0],tmp_t[1]),(25,123,0),10)
+                    print("l2b>r2b")
+                else:
+                    cv.line(res,(tmp_b[0],tmp_b[1]),(tmp_l[0],tmp_l[1]),(25,123,0),10)
+                    cv.line(res,(tmp_b[0],tmp_b[1]),(tmp_t[0],tmp_t[1]),(25,123,0),10)
+                    cv.line(res,(tmp_l[0],tmp_l[1]),(tmp_t[0],tmp_t[1]),(25,123,0),10)
+                    print("r2b>l2b")
+                #cv.drawContours(res, tmp_t, -1, (255,255,0), 5)
+                #cv.drawContours(res, approx, -1, (255,255,0), 50)     #acid blue for aprox po
+
+                x,y,w,h = cv.boundingRect(approx)   
+                cv.rectangle(res,(x,y),(x+w,y+h),(255,0,25),3)        #blue for bounding box
+                
+            font = cv.FONT_HERSHEY_SIMPLEX
+            ss = "width: " + str(w) + " height:" + str(h)
+            #Fy = 919
+            #e_dis = Fy * 500/op_h
+            text = str(ss)
+            cv.putText(res,text,(x,y+h), font, 1,(255,255,255),4,cv.LINE_AA)
+
+        #bounding box  #through awawy those little contours
+        #
+
+        wid = int(hsv.shape[1] / 2) 
+        hgt = int(hsv.shape[0] / 2 )
+        
+        sframe = cv.resize(cv_image,(wid,hgt))
+        sgaus = cv.resize(blur,(wid,hgt))
+        smask = cv.resize(mask,(wid,hgt))
+        sres = cv.resize(res,(wid,hgt))
+        #scont = cv.resize(cont,(wid,hgt))
+
+
+        #cv.imshow('frame',sframe)
+        #cv.imshow('mask',smask)
+        
+        #cv.imshow('gaus',sgaus)
+       
+        #cv.imshow('mask',mask)
+        #cv.imshow('blur',blur)
+        #cv.imshow('dil',dilation)
+        #cv.imshow('open',opening)
+        k = cv.waitKey(10) & 0xFF
+        cv.imshow('res',sres)
+        #cv.destroyAllWindows()
+        cv.imshow("Image window", sframe)
+        #cv.waitKey(3) 
+
+
+def main(args=None):
+    rclpy.init(args=args)
+
+    minimal_subscriber = MinimalSubscriber()
+
+    rclpy.spin(minimal_subscriber)
+
+    # Destroy the node explicitly
+    # (optional - otherwise it will be done automatically
+    # when the garbage collector destroys the node object)
+    minimal_subscriber.destroy_node()
+    rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()
+
+
+
+---strategy backup
+
+
+import imp
+from logging import makeLogRecord
+from tkinter import SCROLL
+from std_srvs.srv import Empty
+from std_srvs.srv import SetBool
+from time import sleep
+from matplotlib.pyplot import text
+import rclpy
+from rclpy.node import Node
+import cv2 as cv
+from sensor_msgs.msg import Image
+from geometry_msgs.msg import Twist
+from std_msgs.msg import String
+from std_msgs.msg import Bool
+from cv_bridge import CvBridge, CvBridgeError
+import numpy as np
+from tello_msgs.srv import TelloAction
+from tf2_ros.buffer import Buffer
+from tf2_ros.transform_listener import TransformListener
+from tf2_ros import TransformException
+from tutorial_interfaces.srv import MarkerId   
+
+class strategy(Node):
+    def __init__(self):
+        super().__init__('strategy')
+        self.start_client = self.create_client(TelloAction, '/drone1/tello_action')
+        self.rotate_client = self.create_client(SetBool,'/drone1/slow_rotate')
+        self.approach_client = self.create_client(SetBool,'/drone1/pid/teleop_enbale')
+        self.flythrough_client = self.create_client(Empty,'/drone1/blind_fly')
+        self.markerid_client = self.create_client(MarkerId,'/drone1/markerid_set')
+        self.approach_flag = self.create_service(Empty,'/drone1/approach_flag',self.approach_complete_callback)
+        #self.teleop_client = self.create_client(SetBool,'/drone1/teleop_enable')
+
+        self.approach_flag = False
+        self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer, self)
+
+    def approach_complete_callback(self,req,res):
+        self.get_logger().info(('tolerance achieved'))
+        self.approach_flag = True
+        return res
+
+    def check_for_approach_flag(self):
+        if self.approach_flag:
+            #self.get_logger().info(('True'))
+            return True
+        else:
+            #self.get_logger().info(('False'))
+            return False
+
+    def flag_clean(self):
+        self.approach_flag = False
+
+
+    def send_takeoff_request(self): 
+        start_request = TelloAction.Request()
+        start_request.cmd = "takeoff"
+        self.start_future = self.start_client.call_async(start_request)
+
+    def send_rotate_request(self,flag):
+        req = SetBool.Request()
+        req.data = flag
+        self.rotate_future = self.rotate_client.call_async(req)
+
+    def send_approach_request(self,flag):
+        req = SetBool.Request()
+        req.data = flag
+        self.approach_future = self.approach_client.call_async(req)
+    
+    def send_flythrough_request(self):
+        req = Empty.Request()
+        self.flythrough_future = self.flythrough_client.call_async(req)
+
+    def send_markerid_request(self,marker):
+        req = MarkerId.Request()
+        req.id = marker
+        self.markerid_future = self.markerid_client.call_async(req)
+
+    #def send_teleop_request(self,flag):
+    #    req = SetBool.Request()
+    #    req.data = flag
+    #    self.teleop_future = self.teleop_client.call_async(req)
+
+
+def wait_for_takeoff_response(st):
+    while rclpy.ok():
+        rclpy.spin_once(st)
+        if st.start_future.done():
+            try:
+                response = st.start_future.result()
+            except Exception as e:
+                st.get_logger().info((
+                    'Service call failed %r' % (e,)))
+    
+            break
+    
+
+def wait_rotate_response(st):
+    while rclpy.ok():
+        rclpy.spin_once(st)
+        if st.rotate_future.done():
+            try:
+                response = st.rotate_future.result()
+            except Exception as e:
+                st.get_logger().info((
+                    'Service call failed %r' % (e,)))
+            break
+
+def wait_for_approach_response(st):
+    while rclpy.ok():
+        rclpy.spin_once(st)
+        if st.approach_future.done():
+            try:
+                response = st.approach_future.result()
+            except Exception as e:
+                st.get_logger().info((
+                    'Service call failed %r' % (e,)))
+    
+            break
+
+def wait_for_flythrough_response(st):
+    while rclpy.ok():
+        rclpy.spin_once(st)
+        if st.flythrough_future.done():
+            try:
+                response = st.flythrough_future.result()
+            except Exception as e:
+                st.get_logger().info((
+                    'Service call failed %r' % (e,)))
+            break
+
+def wait_for_markerid_response(st):
+    while rclpy.ok():
+        rclpy.spin_once(st)
+        if st.markerid_future.done():
+            try:
+                response = st.markerid_future.result()
+            except Exception as e:
+                st.get_logger().info((
+                    'Service call failed %r' % (e,)))
+            break
+
+#def wait_for_teleop_response(st):
+#    while rclpy.ok():
+#        rclpy.spin_once(st)
+#        if st.teleop_future.done():
+#            try:
+#                response = st.teleop_future.result()
+#            except Exception as e:
+#                st.get_logger().info((
+#                   'Service call failed %r' % (e,)))
+#            break
+
+
+
+def search_for_AR_Tag(st,marker):
+    find_artag1 = False
+    while not find_artag1:
+        try:
+            now = rclpy.time.Time()
+            st.trans = st.tf_buffer.lookup_transform(
+                'tello_base',
+                marker,
+                now)
+            find_artag1 = True
+        except TransformException as ex:
+            #st.get_logger().info(('not yet'))
+            pass
+        rclpy.spin_once(st)
+
+
+
+
+
+def gate_artag_strategy(st,marker):
+
+
+    # set marker_id for current_gate
+    while not st.markerid_client.wait_for_service(timeout_sec=1.0):
+        st.get_logger().info(('marker idservice not available, waiting again...'))
+    st.send_markerid_request(marker)
+    wait_for_markerid_response(st)
+    st.get_logger().info(('currently finding Gate ..'+marker))
+
+
+    # rotate until find ARtag
+    while not st.rotate_client.wait_for_service(timeout_sec=1.0):
+        st.get_logger().info(('rotate service not available, waiting again...'))
+    st.send_rotate_request(True)
+    wait_rotate_response(st)
+    st.get_logger().info(('start rotating, searching for artag now..'))
+
+
+    search_for_AR_Tag(st,marker)
+    st.get_logger().info(('ARtag1found, stop rotating..'))
+    st.send_rotate_request(False)
+    wait_rotate_response(st)
+    st.get_logger().info(('successfully stopped'))
+
+
+
+    st.get_logger().info("sofarsogood!")
+    
+
+    sleep(2)
+
+    # approach ARtag
+    st.get_logger().info("approaching ARtag!")
+    while not st.approach_client.wait_for_service(timeout_sec=1.0):
+        st.get_logger().info(('pid teleop service not available, waiting again...'))
+    st.send_approach_request(True)
+    wait_for_approach_response(st)
+
+    while not st.check_for_approach_flag():
+        sleep(0.5)
+        # st.get_logger().info(('adjusting now...'))
+    
+    st.flag_clean()
+
+
+    st.send_approach_request(False)
+    wait_for_approach_response(st)
+    st.get_logger().info("estimated approached,flythrough")
+    
+
+    sleep(5)
+
+    #blind_fly_through
+    
+    st.get_logger().info("blind fly through ARtag!")
+    while not st.flythrough_client.wait_for_service(timeout_sec=1.0):
+        st.get_logger().info(('blind fly service not available, waiting again...'))
+    st.send_flythrough_request()
+    wait_for_flythrough_response(st)
+    sleep(6)
+    st.get_logger().info("already through ARtag!")
+    
+    pass
+
+
+def hsv_gate_strategy():
+    # stage 1: find the gate
+    # rotate until x>1/10*frame.width, y+h<9/10*frame.width, abs(((x+w)+x)/2-frame.width)<1/10*frame.width 
+    # call rotate service(SetBool), check for cv_pub in strategy
+    
+
+    # keep height by making abs(((y+h)+y)/2 - frame.height)<1/10*frame.height
+    # pid control, service disable tf_pub, enable pid_teleop
+
+
+    # stage 2: approach the gate
+    # slowly approch the gate until abs(h-desired_h)<1/20*frame.height
+
+
+    # stage 3: center to the gate
+    # rotate around the gate until abs(ratio-desired_ratio)<1/20*frame.height
+    # strategy give out vel?
+
+    # stage 4: blindly fly through it
+    
+    # done!
+    pass
+
+
+
+def main(args=None):
+    rclpy.init(args=args)    
+    st = strategy()
+    st.get_logger().info(("preparing111"))
+    sleep(5)
+
+
+    #disable joy_stick_teleop
+    #while not st.teleop_client.wait_for_service(timeout_sec=1.0):  
+    #    st.get_logger().info(('teleop service not available, waiting again...'))
+    #st.send_teleop_request(False)
+    #wait_for_teleop_response(st)
+    #st.get_logger().info(('teleop disabled'))
+   
+    # take off
+    
+    
+    while not st.start_client.wait_for_service(timeout_sec=1.0):  
+        st.get_logger().info(('take off service not available, waiting again...'))
+    st.send_takeoff_request()
+    wait_for_takeoff_response(st)
+    st.get_logger().info(('successfully taken off'))
+    
+    
+
+    gate_artag_strategy(st,'marker1')
+
+    st.get_logger().info("sofarsogood1!")
+
+    #gate_artag_strategy(st,'marker2')
+
+    #st.get_logger().info("sofarsogood2!")
+
+    # logic + 
+    # if I lost the view of ARtag, I have to rotate to find it again
+
+
+    #disable joy_stick_teleop
+    #while not st.teleop_client.wait_for_service(timeout_sec=1.0):  
+    #    st.get_logger().info(('service not available, waiting again...'))
+    #st.send_teleop_request(True)
+    #wait_for_teleop_response(st)
+
+
+    rclpy.spin(st)
+
+    st.destroy_node()
+    rclpy.shutdown()
+
+
+
+
+if __name__ == '__main__':
+    main()

@@ -1,0 +1,26 @@
+
+# terminal 1 - tello_driver
+cd tello_ws/
+source install/setup.bash
+ros2 launch tello_mod simple.launch.py 
+
+# terminal 2 - roscore
+sr1
+roscore
+
+# terminal 3 - ros2_bridge
+cd ros2_bridge/
+source install/setup.bash 
+srbridge
+ros2 run ros1_bridge dynamic_bridge 
+
+# terminal 4 - orbslam2
+srROS
+roslaunch flock_driver orbslam2_with_cloud_map.launch 
+
+# terminal 5 - cmd
+sr2
+cd tello_ws/
+source install/setup.bash
+ros2 service call /drone1/tello_action tello_msgs/TelloAction "{cmd: 'takeoff'}"
+ros2 service call /drone1/tello_action tello_msgs/TelloAction "{cmd: 'land'}"
